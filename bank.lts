@@ -1,0 +1,60 @@
+// BANKING SYSTEM
+
+// the max and range set the amount of "money" the system is working with
+const Max = 1
+range M = 0..Max
+
+// the account alpha set is to be added to each later group to prevent the duplication of these repeated actions
+set AccountAlpha = { balance.{read[M], write[M], acquire, release, no_funds} }
+
+ACCOUNT = ACCOUNT[0],
+
+// account balances have two actions, being to read the current "money" value or to write in a new one
+ACCOUNT[x : M] = 	(
+				    	  read[x] -> ACCOUNT[x] 
+						| write[money : M] -> ACCOUNT[money]
+					) .
+
+// the student reads the balance of the account then is allowed to buy the iphone if they have funds, otherwise are told they have no funds
+STUDENT = 		(
+					balance.acquire -> balance.read[x : M] -> 
+					(
+						  when ( x > 0 ) buy_iPhone -> balance.write [x-1] -> balance.release -> STUDENT
+						| when ( x == 0 ) balance.no_funds -> balance.release -> STUDENT
+					)
+				) 
+				+ AccountAlpha . //allows only the actions from the alphabet
+
+// the parent reads the balance of the account then add the money to the account
+PARENT = 		( balance.acquire -> balance.read[x : M] -> send_money -> balance.write[x+1] -> balance.release -> PARENT ) 
+				+ AccountAlpha .
+
+// the university reads the balance of the account then is allowed to take the fees if the student has the funds, otherwise are told there are no funds
+UNIVERSITY = 	(
+					balance.acquire -> balance.read[x : M] -> 
+					(
+						  when ( x > 0 ) take_fee -> balance.write [x-1] -> balance.release -> UNIVERSITY
+						| when ( x == 0 ) balance.no_funds -> balance.release -> UNIVERSITY
+					)
+				) 
+				+ AccountAlpha .
+
+// the company reads the balance of the account then adds the loan to the account
+COMPANY = 		( balance.acquire -> balance.read[x : M] -> give_loan -> balance.write[x+1] -> balance.release -> COMPANY ) 
+				+ AccountAlpha .
+
+
+//ensures mutual exclusivity by making defining the lock's aquire and release and then molds that onto account
+//so when account is aquired or released the lock is held or given up
+
+LOCK = ( acquire -> release -> LOCK ) .
+
+|| LOCKED = ( LOCK || ACCOUNT ) .
+
+
+|| 	BANKING_SYSTEM 
+=(	s: STUDENT
+||	u: UNIVERSITY
+||	p: PARENT
+||	c: COMPANY
+||	{s,u,c,p} :: balance : LOCKED ) . //ensures only one of each can hold the lock at any given time
